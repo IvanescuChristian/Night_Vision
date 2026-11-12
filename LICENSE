@@ -1,0 +1,134 @@
+Night_Vision
+Copyright (c) 2026 Christian Ivanescu. All rights reserved except as granted below.
+
+Required Notice: Copyright 2026 Christian Ivanescu (https://github.com/IvanescuChristian)
+
+SPDX-License-Identifier suggestion for source file headers:
+    SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+(PolyForm Strict 1.0.0 is not on the SPDX License List, so the LicenseRef- form is used.)
+
+This is a source-available license. It is NOT an open source license as
+defined by the Open Source Initiative, and the software is not open source.
+
+This file has two parts:
+  PART 1 - the PolyForm Strict License 1.0.0, reproduced verbatim and unmodified.
+  PART 2 - Additional Terms by the licensor. Where PART 2 adds a condition, it
+           applies in addition to PART 1. PART 2 grants no additional rights.
+
+================================================================================
+PART 1 - POLYFORM STRICT LICENSE 1.0.0 (VERBATIM)
+Source: https://polyformproject.org/licenses/strict/1.0.0
+        https://github.com/polyformproject/polyform-licenses/blob/1.0.0/PolyForm-Strict-1.0.0.md
+================================================================================
+
+# PolyForm Strict License 1.0.0
+
+<https://polyformproject.org/licenses/strict/1.0.0>
+
+## Acceptance
+
+In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+
+## Copyright License
+
+The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose, other than distributing the software or making changes or new works based on the software.
+
+## Patent License
+
+The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+
+## Noncommercial Purposes
+
+Any noncommercial purpose is a permitted purpose.
+
+## Personal Uses
+
+Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+
+## Noncommercial Organizations
+
+Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
+
+## Fair Use
+
+You may have "fair use" rights for the software under the law. These terms do not limit them.
+
+## No Other Rights
+
+These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+
+## Patent Defense
+
+If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+
+## Violations
+
+The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+
+## No Liability
+
+***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+
+## Definitions
+
+The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+
+**You** refers to the individual or entity agreeing to these terms.
+
+**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization.  **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the software under these terms.
+
+**Use** means anything you do with the software requiring one of your licenses.
+
+
+================================================================================
+PART 2 - ADDITIONAL TERMS (NOT PART OF THE POLYFORM STRICT LICENSE TEXT)
+================================================================================
+
+In these Additional Terms, "licensor" and "software" have the meanings given in
+PART 1. The licensor is Christian Ivanescu. The software is Night_Vision.
+
+1. Attribution. Any use of the software, or of any code or snippet taken from
+   it, that is permitted under PART 1 and that is shown, published, quoted,
+   discussed, or referred to publicly (including in documentation, videos,
+   streams, articles, or posts) must credit the author with this notice:
+
+       Night_Vision by Christian Ivanescu (https://github.com/IvanescuChristian)
+
+   Where the software or a code snippet is reproduced, for example in a quote
+   or excerpt as permitted by fair use, this copyright notice and the
+   license notice must remain with it.
+
+2. Commercial or monetary use. Any commercial use, or any use that produces
+   money or other consideration directly or indirectly (including sale,
+   paid hosting or service, inclusion in a paid or monetized product,
+   advertising-supported or monetized content, or use in or for a business),
+   is not a permitted purpose and is not licensed under PART 1. Such use is
+   allowed only after you have:
+     (a) contacted the licensor by email at christian.ivanescu@isoskills.fi
+         describing the intended use, and
+     (b) obtained a prior written agreement signed or confirmed in writing by
+         the licensor.
+   The agreement will include a revenue share payable to the licensor, on terms
+   to be agreed in that agreement. No commercial or monetary use is licensed by
+   silence, delay, or non-response by the licensor.
+
+3. No modification or redistribution. For clarity, and consistent with
+   PART 1, you may not make changes or new works based on the software, and you
+   may not distribute the software or any modified version of it, except
+   under a written agreement with the licensor.
+
+4. Reservation of rights. All rights not expressly granted in PART 1 are
+   reserved by the licensor. Nothing in this file transfers ownership of the
+   software or any intellectual property in it.
+
+5. Warranty disclaimer, liability, and termination. The "No Liability" and
+   "Violations" sections of PART 1 apply, and nothing in PART 2 limits them.
+   Failure to comply with PART 2 is a violation under the "Violations" section
+   of PART 1, and your licenses end as provided there.
+
+6. Conflict. If PART 2 conflicts with PART 1, the more restrictive provision
+   applies to you; PART 2 never grants more than PART 1 does.
+
+Contact: christian.ivanescu@isoskills.fi

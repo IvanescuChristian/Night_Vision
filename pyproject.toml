@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nightvision"
+version = "0.1.0"
+description = "Display-side image enhancement for dark scenes (gamma/tone curve and capture-based enhancement). Source-available."
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+dependencies = [
+    "numpy>=2.5",
+    "opencv-python-headless>=5.0",
+    "mss>=10.2",
+    "Pillow>=13.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "moderngl>=5.12",
+    "glfw>=2.8",
+]
+dev = [
+    "pytest>=9.2",
+    "psutil>=7.2",
+]
+
+[project.scripts]
+nightvision = "nightvision.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["nightvision*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "gui: needs a display (run under a virtual display)",
+    "slow: resource/lifetime measurements",
+]

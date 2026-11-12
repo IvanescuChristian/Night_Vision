@@ -1,0 +1,5 @@
+-r requirements.txt
+pytest>=9.2
+psutil>=7.2
+moderngl>=5.12
+glfw>=2.8
