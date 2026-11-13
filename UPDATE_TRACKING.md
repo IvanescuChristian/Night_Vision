@@ -4,6 +4,18 @@ Checkpointed development log, newest first.
 
 ## 2026-11-13
 
+- X error handler (fixed): Xlib has one process-global error handler. Tk
+  installs its own on the first tk.Tk(); creating a GLX context (moderngl,
+  default backend) replaces it with Xlib's default, which calls exit(1). A
+  later harmless BadWindow inside Tk then ended the whole process silently
+  (seen as a test run dying after test_identity_equal; a risk in the real app,
+  which combines the Tk UI and GL contexts). Probing showed only GLX
+  standalone-context creation changes the handler (EGL, GLFW init/window/
+  terminate and context release do not). Added nightvision/x11_errors.py
+  (preserve_x_error_handler) and wrapped every GL/GLFW init, create, release
+  and terminate site in gpu/processor.py and backends/present/overlay_gl.py.
+  tests/test_x11_errors.py covers the entry points and the original crash
+  sequence.
 - Measurements recorded: steady-state, 20-cycle churn and per-frame figures
   for the CPU path, the Mesa software renderer (llvmpipe) and an integrated
   AMD Radeon GPU are in ARCHITECTURE.md

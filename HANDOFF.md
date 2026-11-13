@@ -40,6 +40,13 @@ README.md  ARCHITECTURE.md  UPDATE_TRACKING.md  HANDOFF.md  LICENSE
 pyproject.toml  requirements.txt  requirements-dev.txt
 ```
 
+## X error handler rule
+
+Xlib's error handler is process-global and Tk's gets replaced by GLX context
+creation, after which any stray X error exits the process. Any code that
+creates GL contexts or touches GLFW must go through
+`nightvision.x11_errors.preserve_x_error_handler()`.
+
 ## Open items and next steps
 
 1. `wlr-gamma-control`: implement through Wayland protocol bindings (currently

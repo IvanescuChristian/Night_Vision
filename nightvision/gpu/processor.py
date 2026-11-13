@@ -31,6 +31,7 @@ import numpy as np
 
 from ..core.curves import build_lut
 from ..core.params import EnhanceParams
+from ..x11_errors import preserve_x_error_handler
 from . import shaders
 from .caps import FrameTooLargeError, GpuCaps, probe_gpu
 
@@ -62,7 +63,7 @@ def _backend_order(prefer_egl: Optional[bool]) -> list[str]:
         # EGL first only when no display server is reachable: a process that
         # has created an EGL context and later opens a GLX window (the overlay
         # presenter) is aborted by Xlib's default error handler (BadAccess on
-        # GLXMakeCurrent; reproduced under Xvfb with Mesa), so when a display
+        # GLXMakeCurrent; reproduced on a virtual X server with Mesa), so when a display
         # exists the platform-native backend must be the one used.
         # Windows: WGL follows the OS per-app GPU preference (Settings >
         # Graphics), which is what a hybrid-laptop user expects.
@@ -84,7 +85,9 @@ def open_context(prefer_egl: Optional[bool] = None):
     for backend in _backend_order(prefer_egl):
         kw = {"backend": "egl"} if backend == "egl" else {}
         try:
-            return moderngl.create_standalone_context(require=330, **kw), backend
+            # GLX context creation clobbers Tk's Xlib error handler.
+            with preserve_x_error_handler():
+                return moderngl.create_standalone_context(require=330, **kw), backend
         except Exception as exc:  # driver errors come in many types
             errors.append(f"{backend}: {exc}")
     raise RuntimeError("no OpenGL 3.3 context: " + "; ".join(errors))
@@ -213,7 +216,8 @@ class GpuFrameEnhancer:
             self._park.release()
             self._park = None
         if self._owns_ctx:
-            self._ctx.release()
+            with preserve_x_error_handler():
+                self._ctx.release()
 
     # ---- internals --------------------------------------------------------
     def _check_thread(self) -> None:

@@ -36,6 +36,7 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
+from ...x11_errors import preserve_x_error_handler
 from . import win32_affinity
 
 log = logging.getLogger(__name__)
@@ -158,7 +159,9 @@ class GlOverlaySink:
 
     def _create_window(self) -> None:
         """Main thread: glfw.init, hints, window."""
-        if not glfw.init():
+        with preserve_x_error_handler():
+            inited = glfw.init()
+        if not inited:
             raise RuntimeError("glfw.init() failed (no display?)")
         self._glfw_inited = True
         glfw.default_window_hints()
@@ -178,7 +181,8 @@ class GlOverlaySink:
             glfw.window_hint(glfw.FOCUS_ON_SHOW, glfw.FALSE)
             glfw.window_hint(glfw.FOCUSED, glfw.FALSE)
             glfw.window_hint(glfw.MOUSE_PASSTHROUGH, glfw.TRUE)
-        self._win = glfw.create_window(w, h, "NightVision", None, None)
+        with preserve_x_error_handler():
+            self._win = glfw.create_window(w, h, "NightVision", None, None)
         if not self._win:
             self._win = None
             self._terminate_if_last()
@@ -205,7 +209,8 @@ class GlOverlaySink:
     def _terminate_if_last(self) -> None:
         with _state_lock:
             if self._glfw_inited and not _live_sinks:
-                glfw.terminate()
+                with preserve_x_error_handler():
+                    glfw.terminate()
             self._glfw_inited = False
 
     def _destroy_window(self) -> None:
@@ -214,11 +219,13 @@ class GlOverlaySink:
         if win is not None:
             with _state_lock:
                 _live_sinks.discard(self)
-            glfw.destroy_window(win)
+            with preserve_x_error_handler():
+                glfw.destroy_window(win)
         self._terminate_if_last()
 
     def _init_gl(self) -> None:
-        self._ctx = moderngl.create_context(require=330)
+        with preserve_x_error_handler():
+            self._ctx = moderngl.create_context(require=330)
         self._prog = self._ctx.program(vertex_shader=_VERT, fragment_shader=_FRAG)
         self._prog["tex"].value = 0
         quad = np.array([-1, -1, 1, -1, -1, 1, 1, 1], dtype="f4")
@@ -236,7 +243,8 @@ class GlOverlaySink:
         self._tex_size = None
         if self._ctx is not None:
             try:
-                self._ctx.release()
+                with preserve_x_error_handler():
+                    self._ctx.release()
             except Exception:
                 pass
             self._ctx = None

@@ -153,6 +153,12 @@ control thread  >--> bounded action queue --> drained on the owner thread
 - GLFW windows are created, polled and destroyed on the main thread through
   the dispatcher; rendering happens on the render thread with a shared GL
   context (zero-copy: the enhanced texture is drawn directly).
+- X error handler: Xlib has a single process-global handler that GLX context
+  creation overwrites (Tk's is lost, and the default one exits the process).
+  All GL/GLFW init, create, release and terminate calls therefore run inside
+  `x11_errors.preserve_x_error_handler()`. GL work on the render thread briefly
+  swaps the handler while Tk runs on the main thread; the window is tiny and
+  the previous handler is restored immediately.
 - Capture is capped at twice the target fps. OpenCV threads are capped at
   min(4, cores/2); glibc malloc arenas are limited; GPU textures are reused;
   neutral stages are skipped.
