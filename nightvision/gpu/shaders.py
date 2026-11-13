@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
 # Copyright (c) 2026 Christian Ivanescu. See LICENSE for terms (source-available; not open source).
 """GLSL 330 core sources for the enhancement passes."""
+from ..core.curves import bayer_glsl
 
 # One oversized triangle covers the viewport; no vertex buffers needed.
 VERTEX = """#version 330 core
@@ -12,9 +13,10 @@ void main() {
 }
 """
 
-# Pass 1: tone curve. The LUT comes from the CPU build_lut() so the tone
-# result is bit-identical to the CPU path (the texture is 8 bit, rounding is
-# done on the CPU, not re-derived in float on the GPU).
+# Pass 1: tone curve. The LUT comes from the CPU build_float_lut(): 256
+# unrounded float values (R32F texture), so the curve is not quantised to 8 bit
+# here. The result goes to a half-float target and is only quantised (with
+# dither) by the final pass.
 TONE = """#version 330 core
 uniform sampler2D src;
 uniform sampler2D lut;
@@ -109,6 +111,8 @@ uniform float sharpen_amount;
 uniform float saturation;
 in vec2 uv;
 layout(location = 0) out vec4 o;
+// 8x8 Bayer matrix, row-major [y][x]; same table as core.curves.BAYER8.
+const int BAYER[64] = int[64](@BAYER@);
 void main() {
     vec4 c = texelFetch(tone, ivec2(gl_FragCoord.xy), 0);
     vec3 rgb = c.bgr;
@@ -127,6 +131,11 @@ void main() {
         y += sharpen_amount * (y0 - texelFetch(sharpen_tex, ivec2(gl_FragCoord.xy), 0).r);
     }
     vec3 chroma = (rgb - y0) * saturation;
-    o = vec4(clamp(vec3(y) + chroma, 0.0, 1.0).bgr, c.a);
+    // Static ordered dither before the 8-bit store: code = floor(v*255 + t),
+    // t in (0,1) from the pixel position (mean 0.5, so unbiased, no flicker).
+    ivec2 fc = ivec2(gl_FragCoord.xy);
+    float t = (float(BAYER[(fc.x & 7) + (fc.y & 7) * 8]) + 0.5) / 64.0;
+    vec3 v = floor(clamp(vec3(y) + chroma, 0.0, 1.0) * 255.0 + t) / 255.0;
+    o = vec4(v.bgr, c.a);
 }
-"""
+""".replace("@BAYER@", bayer_glsl())

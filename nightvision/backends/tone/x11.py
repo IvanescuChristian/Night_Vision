@@ -77,6 +77,7 @@ def load_xlib():
 
 class XRandRGammaBackend(ToneBackend):
     name = "xrandr"
+    persist_backup = True
 
     def __init__(self) -> None:
         super().__init__()
@@ -165,18 +166,42 @@ class XRandRGammaBackend(ToneBackend):
         finally:
             xrr.XRRFreeGamma(g)
 
+    def _remember(self, xrr, dpy, crtc, size) -> None:
+        if crtc in self._originals:
+            return
+        g = xrr.XRRGetCrtcGamma(dpy, crtc)
+        try:
+            o = g.contents
+            self._originals[crtc] = np.array(
+                [[ch[i] for i in range(size)] for ch in (o.red, o.green, o.blue)],
+                dtype=np.uint16,
+            )
+        finally:
+            xrr.XRRFreeGamma(g)
+
+    def _capture_original(self) -> None:
+        # Read every CRTC before the first write so the backup file is complete.
+        self._each_crtc(lambda xrr, dpy, crtc, size: self._remember(xrr, dpy, crtc, size))
+
+    def _backup_outputs(self) -> dict:
+        return {str(c): r for c, r in self._originals.items()}
+
+    def _adopt_recovered(self, outputs) -> None:
+        self._originals.update({int(k): v for k, v in outputs.items()})
+
+    def _write_recovered(self, outputs) -> None:
+        wanted = {int(k): v for k, v in outputs.items()}
+
+        def go(xrr, dpy, crtc, size):
+            r = wanted.get(crtc)
+            if r is not None:
+                self._set(xrr, dpy, crtc, size, resample_ramp(r, size))
+
+        self._each_crtc(go)
+
     def _write_ramp(self, ramp) -> None:
         def go(xrr, dpy, crtc, size):
-            if crtc not in self._originals:
-                g = xrr.XRRGetCrtcGamma(dpy, crtc)
-                try:
-                    o = g.contents
-                    self._originals[crtc] = np.array(
-                        [[ch[i] for i in range(size)] for ch in (o.red, o.green, o.blue)],
-                        dtype=np.uint16,
-                    )
-                finally:
-                    xrr.XRRFreeGamma(g)
+            self._remember(xrr, dpy, crtc, size)
             self._set(xrr, dpy, crtc, size, resample_ramp(ramp, size))
 
         self._each_crtc(go)
@@ -192,6 +217,7 @@ class XRandRGammaBackend(ToneBackend):
 
 class XF86VidModeGammaBackend(ToneBackend):
     name = "xf86vidmode"
+    persist_backup = True
 
     def __init__(self) -> None:
         super().__init__()

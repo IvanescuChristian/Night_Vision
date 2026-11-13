@@ -10,6 +10,7 @@ contexts are thread-affine).
 """
 from __future__ import annotations
 
+import contextlib
 import inspect
 import threading
 import time
@@ -17,7 +18,27 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
+from . import runtime
 from .core.params import EnhanceParams
+
+_SPIN_S = 0.002  # final stretch of a pacing wait handled by short sleeps, not one coarse wait
+
+
+def _wait_until(stop: threading.Event, deadline: float) -> None:
+    """Sleep until `deadline` (perf_counter) or until stop is set.
+
+    One interruptible wait up to ~2 ms before the deadline (coarse OS timers
+    overshoot by a tick or more), then halving short sleeps / yields so the
+    wake-up lands within about a tenth of a millisecond. Costs at most ~2 ms of
+    light polling per frame."""
+    coarse = deadline - _SPIN_S - time.perf_counter()
+    if coarse > 0 and stop.wait(coarse):
+        return
+    while not stop.is_set():
+        rem = deadline - time.perf_counter()
+        if rem <= 0:
+            return
+        time.sleep(rem * 0.5 if rem > 0.0003 else 0)
 
 
 class EnhancePipeline:
@@ -129,7 +150,11 @@ class EnhancePipeline:
                 "fps": (n / span) if span > 0 else 0.0,
                 "frames_captured": self._captured,
                 "frames_processed": n,
+                # frames_dropped counts every captured frame superseded before it was
+                # rendered, which includes the intended 2x capture oversampling.
+                # frames_late counts render iterations that missed their deadline.
                 "frames_dropped": self._dropped,
+                "frames_late": self._late,
                 "avg_process_ms": (self._proc_s / n * 1000.0) if n else 0.0,
                 "source": self._source_name,
                 "enhancer": self._enhancer_name,
@@ -138,7 +163,7 @@ class EnhancePipeline:
 
     # -- internals ---------------------------------------------------------
     def _reset_stats(self) -> None:
-        self._captured = self._processed = self._dropped = 0
+        self._captured = self._processed = self._dropped = self._late = 0
         self._proc_s = 0.0
         self._t0 = 0.0
         self._source_name = self._enhancer_name = self._sink_name = ""
@@ -190,7 +215,9 @@ class EnhancePipeline:
     def _render_loop(self, stop: threading.Event) -> None:
         self.thread_idents["render"] = threading.get_ident()
         enhancer = sink = None
+        timer = contextlib.ExitStack()
         try:
+            timer.enter_context(runtime.timer_resolution(1))  # no-op off Windows
             # Sink first: a GL sink owns the context the enhancer must share.
             sink = self._sink_factory()
             self._sink_name = type(sink).__name__
@@ -233,12 +260,15 @@ class EnhancePipeline:
                 next_t += period
                 now = time.perf_counter()
                 if next_t > now:
-                    stop.wait(next_t - now)  # interruptible pacing
+                    _wait_until(stop, next_t)  # interruptible, sub-tick accurate
                 else:
+                    with self._lock:
+                        self._late += 1
                     next_t = now  # behind schedule: don't try to catch up in a burst
         except BaseException as e:  # noqa: BLE001
             self._fail(e, stop)
         finally:
+            timer.close()
             self._enhancer = None
             # Enhancer first: on a shared GL context the sink's close releases it.
             for res in (enhancer, sink):

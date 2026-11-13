@@ -20,6 +20,24 @@ else:
     _MSS_ERR = ""
 
 
+def list_monitors() -> list[tuple[int, int, int, int]]:
+    """Physical monitors as (left, top, width, height), in mss order (1-based index = pos + 1).
+
+    Skips mss' entry 0 (the combined virtual screen).
+    """
+    if _mss is None:
+        raise CaptureError(_MSS_ERR)
+    try:
+        sct = getattr(_mss, "MSS", None) and _mss.MSS() or _mss.mss()
+    except Exception as e:  # noqa: BLE001
+        raise CaptureError(f"mss: cannot open display: {e}") from e
+    try:
+        return [(int(m["left"]), int(m["top"]), int(m["width"]), int(m["height"]))
+                for m in sct.monitors[1:]]
+    finally:
+        sct.close()
+
+
 class MssCapture(CaptureSource):
     """monitor: mss monitor index (1 = first physical; 0 = all combined), or
     region: dict(left, top, width, height) in screen pixels.
@@ -78,7 +96,10 @@ class MssCapture(CaptureSource):
             else:
                 mons = self._sct.monitors
                 if not 0 <= self._monitor < len(mons):
-                    raise CaptureError(f"mss: monitor {self._monitor} not found ({len(mons) - 1} available)")
+                    have = "; ".join(f"{i}: {m['width']}x{m['height']} at ({m['left']},{m['top']})"
+                                     for i, m in enumerate(mons) if i)
+                    raise CaptureError(f"mss: monitor {self._monitor} not found; "
+                                       f"available monitors: {have or 'none'}")
                 self._target = mons[self._monitor]
             self._size = (int(self._target["width"]), int(self._target["height"]))
         except CaptureError:
@@ -93,8 +114,13 @@ class MssCapture(CaptureSource):
             shot = self._sct.grab(self._target)
         except Exception as e:  # noqa: BLE001
             raise CaptureError(f"mss grab failed: {e}") from e
-        # BGRA bytes; copy so the frame owns its memory and outlives the mss buffer.
-        return np.frombuffer(shot.bgra, dtype=np.uint8).reshape(shot.height, shot.width, 4).copy()
+        # WHY no copy: every mss backend returns a fresh bytearray per grab (a
+        # snapshot of its shared buffer), owned by the ScreenShot and never reused,
+        # so a view of it is already an independent, writable, contiguous frame.
+        # (shot.bgra would add a further full-frame bytes copy.)
+        raw = shot.raw
+        arr = np.frombuffer(raw, dtype=np.uint8).reshape(shot.height, shot.width, 4)
+        return arr if arr.flags.writeable else arr.copy()
 
     def _close(self) -> None:
         sct, self._sct = self._sct, None

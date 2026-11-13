@@ -26,10 +26,12 @@ from dataclasses import replace
 from typing import Any, Callable, Optional
 
 from . import control as _control
+from .backends.capture.select import monitor_rect as _monitor_rect
 from .backends.capture.select import select_capture_backend
 from .backends.present.select import select_present_backend
+from .backends.tone.base import backup_path as _gamma_backup_path
 from .backends.tone.select import select_tone_backend
-from .core.curves import build_lut, lut_to_ramp
+from .core.curves import curve_to_ramp
 from .core.params import EnhanceParams
 from .core.presets import PRESETS, get_preset
 from .foreground import foreground_window_title, match_profile
@@ -58,7 +60,7 @@ class AppError(RuntimeError):
 
 class NightVisionApp:
     def __init__(self, config_path=None, *, dry_run: bool = False, gpu: str = "auto",
-                 fps: float = 30.0, synthetic: bool = False, info=None,
+                 fps: float = 30.0, synthetic: bool = False, monitor: int = 1, info=None,
                  store: Optional[ProfileStore] = None,
                  tone_backend=None,
                  source_factory: Optional[Callable[[], Any]] = None,
@@ -74,6 +76,7 @@ class NightVisionApp:
         self.gpu = gpu
         self.fps = fps
         self.synthetic = synthetic
+        self.monitor = int(monitor)  # 1-based index into the OS monitor list (as mss reports it)
         self.store = store or ProfileStore(config_path or default_config_path()).load()
         self._tone = tone_backend
         self._tone_reasons: list[str] = []
@@ -276,7 +279,7 @@ class NightVisionApp:
         self._flush_params()
 
     def _apply_display(self, p: EnhanceParams) -> None:
-        ramp = lut_to_ramp(build_lut(p))
+        ramp = curve_to_ramp(p)
         self.tone_backend.apply(ramp)
         self._applied_params = p
 
@@ -331,9 +334,17 @@ class NightVisionApp:
     def _source_make(self):
         if self._source_factory is not None:
             return self._source_factory()
-        src, reasons = select_capture_backend(self.info, synthetic=self.synthetic)
+        src, reasons = select_capture_backend(self.info, synthetic=self.synthetic,
+                                              monitor=self.monitor)
         self._src_reasons = list(reasons)
         return src
+
+    def monitor_rect(self) -> tuple[int, int, int, int]:
+        """(left, top, width, height) of the selected monitor; AppError if it does not exist."""
+        try:
+            return _monitor_rect(self.monitor)
+        except Exception as exc:  # noqa: BLE001 - CaptureError or a display failure
+            raise AppError(str(exc)) from exc
 
     def _sink_factory_for(self, mode: str) -> Callable[[], Any]:
         if self._sink_factory is not None:
@@ -348,9 +359,14 @@ class NightVisionApp:
             if mode == "overlay" and pmode != "overlay":
                 raise AppError("overlay unavailable on this platform: " + "; ".join(reasons))
             dispatcher = self._dispatcher
+            kw: dict[str, Any] = {}
+            if mode == "overlay":
+                # Computed once, on the owner thread: the overlay must sit exactly on
+                # the monitor being captured. The preview window keeps its own size.
+                kw["monitor_rect"] = self.monitor_rect()
 
             def base():
-                return fac(dispatcher=dispatcher)
+                return fac(dispatcher=dispatcher, **kw)
 
         def make():
             self._sink = base()
@@ -474,6 +490,7 @@ class NightVisionApp:
     def start_services(self) -> None:
         """Start hotkeys and the control server (call once, on the owner thread)."""
         self._ensure_open()
+        self._recover_gamma()
         if self._enable_hotkeys:
             self.reload_hotkeys()
         if self._enable_control and self._control is None:
@@ -484,6 +501,17 @@ class NightVisionApp:
             except Exception as exc:  # noqa: BLE001 - e.g. another instance is running
                 self._control_error = str(exc)
                 log.warning("control server not started: %s", exc)
+
+    def _recover_gamma(self) -> None:
+        """Undo a gamma ramp left behind by a crashed earlier session."""
+        if self.dry_run:
+            return
+        try:
+            if self._tone is None and not _gamma_backup_path().exists():
+                return  # nothing to recover: do not probe the display needlessly
+            self.tone_backend.recover()
+        except Exception as exc:  # noqa: BLE001 - never block startup on this
+            log.warning("gamma recovery failed: %s", exc)
 
     @property
     def control_error(self) -> Optional[str]:
@@ -572,7 +600,8 @@ class NightVisionApp:
         }
         if self._capture_diag is None:  # probing may touch D-Bus/X: do it once
             try:
-                src, reasons = select_capture_backend(self.info, synthetic=self.synthetic)
+                src, reasons = select_capture_backend(self.info, synthetic=self.synthetic,
+                                              monitor=self.monitor)
                 self._capture_diag = {"backend": getattr(src, "name", type(src).__name__),
                                       "reasons": list(reasons)}
                 try:
