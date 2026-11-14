@@ -2,6 +2,39 @@
 
 Checkpointed development log, newest first.
 
+## 2026-11-14
+
+- 0.1.1: first published release (the 0.1.0 tag predates CI test fixes; no release was built for it).
+  https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1. Assets:
+  NightVision-0.1.1-linux-x86_64.tar.gz, NightVision-0.1.1-windows-x64-setup.exe,
+  NightVision-0.1.1-windows-x64.zip, SHA256SUMS.txt. CI green on Linux and Windows
+  (tests, builds, smoke tests). Windows builds are unsigned by decision; not yet run on a
+  real Windows PC. Windows smoke now also starts the windowed NightVision.exe in
+  headless dry-run mode; release body carries install, checksum and unsigned notes.
+- Checkpoint, packaging: two-executable Windows build (GUI and console) with an
+  Inno Setup installer, Linux tarball with install and uninstall scripts, and
+  the CI and release workflow (tests, both builds, smoke tests that start the
+  frozen app, tag checked against both version sources, generated release
+  notes). actionlint reports no findings. Verified on Linux locally; the Windows
+  build, installer and release job were then run by CI for 0.1.1. Headless and demo runs now
+  exit 0 with a "stopped by SIGTERM" message on SIGTERM/SIGINT (previously the
+  demo run exited 143).
+
+- Quality pass (committed): `--monitor N` (capture and overlay rectangle follow
+  the chosen monitor), clean shutdown on SIGINT/SIGTERM/SIGBREAK, gamma crash
+  recovery (`gamma_backup.json`, `NIGHTVISION_GAMMA_BACKUP`), float tone LUT
+  with ordered dither, fewer capture copies, hybrid render wait and Windows
+  timer resolution, `frames_late` statistic. Tests: 270 passed / 2 skipped
+  before, 354 passed / 2 skipped after.
+- Non-invasive audit: no process access, injection, hooks, drivers, game-file
+  reads or input synthesis found. The exact API list is in docs/WINDOWS_APIS.md.
+- Documentation pass: README anti-cheat and safety section (honest limits),
+  install routes, known limits; ARCHITECTURE verification status, quality-pass
+  measurements and limitations; new docs/WINDOWS_APIS.md, docs/WINDOWS_SETUP.md
+  and docs/AV_AND_SIGNING.md; HANDOFF checklists refreshed.
+- UI: the diagnostics line shows `frames_late` instead of `frames_dropped`,
+  which counts about half of all captures by design.
+
 ## 2026-11-13
 
 - X error handler (fixed): Xlib has one process-global error handler. Tk

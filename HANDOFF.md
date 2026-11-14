@@ -2,12 +2,16 @@
 
 ## State of the MVP
 
-Version 0.1.0. Implemented: parameter model, tone curve and presets, CPU
+Version 0.1.1. Implemented: parameter model, tone curve and presets, CPU
 enhancement path, OpenGL 3.3 GPU path with probe/self-test/fallback, tone
 backends (Windows, X11, wlroots proxy, null), capture backends (DXGI, mss,
 portal/PipeWire, synthetic), two-thread pipeline, GLFW window/overlay sink with
 a main-thread dispatcher, hotkeys, local control channel, profiles with
 title-based auto-switch, Tk control window and CLI.
+
+The quality pass (monitor selection, signal shutdown, gamma crash recovery, float
+LUT with dither, capture and pacing) is implemented and tested on Linux under a
+virtual display only.
 
 Verified on Linux: core, CPU path, X11 XRandR apply/restore (headless X
 server, no visual readback), mss capture, GL preview window, X11 hotkeys via
@@ -60,7 +64,7 @@ creates GL contexts or touches GLFW must go through
 5. DXGI: validate the optional `dxcam` path, multi-monitor selection and
    frame-pacing.
 6. Per-monitor gamma on Windows (currently a single global ramp).
-7. Packaging: installer and/or a frozen executable.
+7. Packaging (see "Remaining packaging steps" below).
 8. Exact CLAHE on the GPU (currently a local-contrast approximation).
 
 ## Per-vendor GPU test checklist
@@ -124,3 +128,46 @@ Run on each of: NVIDIA, AMD discrete, Intel, AMD integrated, software renderer.
    and exit restores the original; without it, a clear reason is shown.
 6. Bind `nightvision ctl toggle` and `nightvision ctl next-preset` in the
    compositor's shortcut settings and confirm they work.
+
+## Real-hardware test checklist (quality pass)
+
+Nothing below has been run on real hardware yet.
+
+1. Windows: `--monitor 1` and `--monitor 2` on a multi-monitor PC; the overlay
+   covers exactly that monitor; an invalid index exits with code 2 and lists
+   monitors.
+2. Windows, optional `dxcam`: confirm output index N-1 matches monitor N.
+3. Windows timer: `timeBeginPeriod(1)`/`timeEndPeriod` on the render thread;
+   check frame pacing at 60 fps and that nothing else is affected.
+4. Windows gamma backup: start display mode, kill the process hard, start again
+   and confirm the ramp is restored from `gamma_backup.json`; try
+   `NIGHTVISION_GAMMA_BACKUP`; test starting a second instance (expected risk:
+   it recovers the first instance's live backup).
+5. Windows signals: Ctrl+C and Ctrl+Break (SIGBREAK) from a console close
+   cleanly and restore the display.
+6. Windows capture exclusion: `WDA_EXCLUDEFROMCAPTURE` keeps the overlay out of
+   the capture (no feedback loop) on Windows 10 2004+ and 11.
+7. Wayland: SIGTERM/SIGINT shutdown, and gamma recovery with the gammastep
+   proxy.
+8. NVIDIA, discrete AMD, Intel: the per-vendor checklist above plus a visual
+   check that the dither is not visible and the CPU/GPU outputs match.
+9. X11: restart the X server while in display mode and note whether the
+   original ramp is restored (new CRTC ids are a known gap).
+
+## Packaging status
+
+v0.1.1 is released: https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1
+Assets: NightVision-0.1.1-linux-x86_64.tar.gz, NightVision-0.1.1-windows-x64-setup.exe,
+NightVision-0.1.1-windows-x64.zip, SHA256SUMS.txt. CI was green: tests on Linux and
+Windows, both builds smoke-tested (the frozen app starts and exits cleanly), release
+job published the assets. The tag sits on branch feature/quality-pass.
+
+Code signing: DECIDED, Windows builds ship unsigned (no certificate purchase);
+docs/AV_AND_SIGNING.md and docs/WINDOWS_SETUP.md explain SmartScreen, checksum
+and false-positive steps.
+
+Open items:
+
+1. Merge PR #3 (owner).
+2. First run of the CI-built Windows installer and zip on a real Windows PC
+   (docs/WINDOWS_SETUP.md); the real-hardware checklist above still applies.

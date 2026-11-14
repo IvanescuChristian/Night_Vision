@@ -32,6 +32,15 @@ def made():
         e.close()
 
 
+def _open_ctx_or_skip():
+    # WHY: hosted CI runners have no display/GPU, so opening a GL context raises;
+    # that is a missing capability, not a product failure.
+    try:
+        return processing._open_context()
+    except RuntimeError as exc:
+        pytest.skip(f"no OpenGL 3.3 context available: {exc}")
+
+
 def _create(made, *a, **k):
     enh, name, reasons = processing.create_enhancer(*a, **k)
     made.append(enh)
@@ -189,7 +198,7 @@ def test_frame_size_hint_beyond_limit_selects_cpu(made, monkeypatch):
 
 
 def test_shared_ctx_is_used_and_never_released(made):
-    ctx, _ = processing._open_context()
+    ctx, _ = _open_ctx_or_skip()
     try:
         enh, name, reasons = processing.create_enhancer(
             get_preset("night_vision"), prefer="gpu", ctx=ctx)
@@ -206,7 +215,7 @@ def test_shared_ctx_is_used_and_never_released(made):
 
 
 def test_shared_ctx_software_renderer_auto_uses_cpu():
-    ctx, _ = processing._open_context()
+    ctx, _ = _open_ctx_or_skip()
     try:
         if not processing._probe(ctx).is_software:
             pytest.skip("hardware renderer")
@@ -219,7 +228,7 @@ def test_shared_ctx_software_renderer_auto_uses_cpu():
 
 
 def test_zero_copy_drops_after_runtime_failure(made):
-    ctx, _ = processing._open_context()
+    ctx, _ = _open_ctx_or_skip()
     try:
         enh, name, _r = processing.create_enhancer(
             get_preset("night_vision"), prefer="gpu", ctx=ctx)

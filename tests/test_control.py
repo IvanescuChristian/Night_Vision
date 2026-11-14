@@ -140,3 +140,23 @@ def test_tcp_requires_token(tmp_path):
         c.close()
     finally:
         s.stop()
+
+
+def test_tcp_second_instance_refused_and_stale_file_reclaimed(tmp_path):
+    path = str(tmp_path / "i.json")
+    first = ControlServer(Handler(), path=path, transport="tcp")
+    first.start()
+    try:
+        second = ControlServer(Handler(), path=path, transport="tcp")
+        with pytest.raises(RuntimeError, match="already"):
+            second.start()
+        # the refused instance must not have clobbered the first one's token
+        assert send_command({"cmd": "status"}, path=path, transport="tcp")["ok"]
+    finally:
+        first.stop()
+    # a crashed instance leaves its info file behind; that must not block a restart
+    with open(path, "w") as f:
+        json.dump({"port": 1, "token": "x"}, f)
+    third = ControlServer(Handler(), path=path, transport="tcp")
+    third.start()
+    third.stop()

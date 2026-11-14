@@ -273,8 +273,10 @@ class MainWindow:
         if d["control"]["error"]:
             lines.append(f"control: {d['control']['error']}")
         st = d["stats"]
+        # frames_dropped is not shown: capture runs at twice the target rate, so
+        # about half of captures are superseded by design and would look like a fault.
         lines.append("live: " + (f"{st['fps']:.1f} fps, {st['avg_process_ms']:.1f} ms/frame, "
-                                 f"{st['frames_dropped']} dropped" if st else "idle"))
+                                 f"{st['frames_late']} late" if st else "idle"))
         if d["error"]:
             lines.append(f"error: {d['error']}")
         self.diag.config(state="normal")
