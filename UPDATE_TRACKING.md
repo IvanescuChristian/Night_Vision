@@ -4,6 +4,7 @@ Checkpointed development log, newest first.
 
 ## 2026-11-14
 
+- 0.1.1: first published release (the 0.1.0 tag predates CI test fixes; no release was built for it).
 - Checkpoint, packaging: two-executable Windows build (GUI and console) with an
   Inno Setup installer, Linux tarball with install and uninstall scripts, and
   the CI and release workflow (tests, both builds, smoke tests that start the
