@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
 # Copyright (c) 2026 Christian Ivanescu. See LICENSE for terms (source-available; not open source).
+import sys
 import threading
 import time
 
@@ -11,6 +12,9 @@ from nightvision.core.enhance import FrameEnhancer
 from nightvision.core.params import EnhanceParams
 from nightvision.pipeline import EnhancePipeline, _wait_until
 from nightvision.sinks import NullSink
+
+
+WIN = sys.platform == "win32"
 
 
 class RecSink(NullSink):
@@ -41,16 +45,23 @@ def test_steady_pacing_30fps():
     period = 1 / 30
     # measured ~33.3 ms mean; the bounds leave room for a loaded CI machine
     assert abs(st["fps"] - 30) / 30 < 0.05
-    assert np.percentile(iv, 95) < 1.5 * period
+    # Windows shared runners wake late by a timer tick or more, so the tail gets more room
+    assert np.percentile(iv, 95) < (2.5 if WIN else 1.5) * period
     assert iv.mean() * 1000 < 1.05 * period * 1000
 
 
 def test_wait_until_accuracy_and_stop():
     stop = threading.Event()
-    deadline = time.perf_counter() + 0.05
-    _wait_until(stop, deadline)
-    over = time.perf_counter() - deadline
-    assert 0 <= over < 0.01
+    overs = []
+    for _ in range(5):
+        deadline = time.perf_counter() + 0.05
+        _wait_until(stop, deadline)
+        overs.append(time.perf_counter() - deadline)
+    # Never early (deterministic). The overshoot bound is on the median because one
+    # scheduler hiccup on a shared runner (seen: 10.7 ms on Windows CI) says nothing
+    # about the algorithm; Windows timers are coarser (~15.6 ms tick), so a looser bound.
+    assert min(overs) >= 0
+    assert sorted(overs)[len(overs) // 2] < (0.03 if WIN else 0.01)
     # returns promptly when stopped
     threading.Timer(0.02, stop.set).start()
     t = time.perf_counter()
