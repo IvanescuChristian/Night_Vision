@@ -146,6 +146,7 @@ Status of each route:
 - Linux tarball (x86-64, no root needed): see
   [docs/LINUX_INSTALL.md](docs/LINUX_INSTALL.md). Each release lists SHA256
   checksums in `SHA256SUMS.txt` on the Releases page; verify downloads against it.
+- Upgrading from an earlier version: see [docs/UPGRADING.md](docs/UPGRADING.md).
 - From source (below).
 
 ### From source

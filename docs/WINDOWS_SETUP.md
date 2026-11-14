@@ -63,7 +63,12 @@ own window, which is more than display mode does.
 If the screen looks wrong after a crash, start Night Vision again; it restores
 the saved gamma on start. Restarting the PC also resets it.
 
-## 7. Uninstall
+## 7. Upgrade and uninstall
+
+To upgrade, just run the newer installer: it closes the app, replaces the old
+files in place and keeps your settings. See [UPGRADING.md](UPGRADING.md).
+
+To uninstall:
 
 Open Windows Settings, Apps, Installed apps, find Night Vision and choose
 Uninstall. Your profiles are in `%APPDATA%\NightVision\` and can be deleted by

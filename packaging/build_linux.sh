@@ -22,6 +22,8 @@ mkdir -p "$out" "$work/stage/$name"
     --workpath "$work/pyi" --distpath "$work/pyi-dist")
 
 cp -a "$work/pyi-dist/NightVision" "$work/stage/$name/NightVision"
+# install.sh reads this to report "Upgraded from X to Y" and to detect a reinstall.
+printf '%s\n' "$version" > "$work/stage/$name/NightVision/VERSION"
 cp "$root/packaging/install.sh" "$root/packaging/uninstall.sh" "$root/LICENSE" "$work/stage/$name/"
 chmod 755 "$work/stage/$name/install.sh" "$work/stage/$name/uninstall.sh"
 

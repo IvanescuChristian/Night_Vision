@@ -34,6 +34,10 @@ This copies the app to `~/.local/opt/NightVision`, links the command
 (`~/.local/share/applications/nightvision.desktop`). Make sure
 `~/.local/bin` is on your `PATH`.
 
+To upgrade, download the newer tarball and run its `install.sh`; it stops the
+running copy from `~/.local/opt/NightVision`, replaces the old files as a whole
+and keeps `~/.config/nightvision`. See [UPGRADING.md](UPGRADING.md).
+
 ## 3. Run
 
 ```
@@ -48,12 +52,13 @@ See the README for modes, presets and profiles.
 ## 4. Uninstall
 
 ```
-./uninstall.sh        # from the extracted folder
+~/.local/opt/NightVision/uninstall.sh            # keeps your settings
+~/.local/opt/NightVision/uninstall.sh --purge    # also deletes ~/.config/nightvision
 ```
 
-or by hand: delete `~/.local/opt/NightVision`, `~/.local/bin/nightvision` and
-`~/.local/share/applications/nightvision.desktop`. Settings under
-`~/.config/nightvision` are kept; delete that folder too for a full removal.
+(the copy in the extracted folder works too), or by hand: delete `~/.local/opt/NightVision`, `~/.local/bin/nightvision` and
+`~/.local/share/applications/nightvision.desktop`. Without `--purge`, settings under
+`~/.config/nightvision` are kept.
 
 ## System requirements
 
