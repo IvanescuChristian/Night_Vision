@@ -25,6 +25,7 @@ def _gdi():
 
 class Win32GammaBackend(ToneBackend):
     name = "win32"
+    persist_backup = True
 
     def available(self) -> bool:
         if not sys.platform.startswith("win"):

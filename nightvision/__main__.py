@@ -22,6 +22,16 @@ EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_NO_GUI, EXIT_NO_INSTANCE, EXIT_BUSY = 0, 1,
 CTL_ACTIONS = ("toggle", "next-preset", "preset", "profile", "status", "quit")
 
 
+def _monitor_arg(text: str) -> int:
+    try:
+        n = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"monitor must be a whole number, got {text!r}") from None
+    if n < 1:
+        raise argparse.ArgumentTypeError("monitor is 1-based: use 1 for the first monitor")
+    return n
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="nightvision",
@@ -37,6 +47,8 @@ def _parser() -> argparse.ArgumentParser:
                    help="synthetic dark scene in a preview window (no game needed)")
     p.add_argument("--gpu", choices=("auto", "gpu", "cpu"), default="auto")
     p.add_argument("--fps", type=float, default=30.0)
+    p.add_argument("--monitor", type=_monitor_arg, default=1, metavar="N",
+                   help="monitor to capture and cover, 1-based as the OS lists them (default 1)")
     p.add_argument("--config", metavar="PATH")
     p.add_argument("--dry-run", action="store_true", help="use the null tone backend")
     p.add_argument("--max-seconds", type=float, default=None, help=argparse.SUPPRESS)
@@ -105,10 +117,17 @@ def _owner_loop(app, max_seconds: Optional[float], want_pipeline: bool) -> int:
     return EXIT_FAIL if (want_pipeline and app.last_error) else EXIT_OK
 
 
-def _run_headless(app, args, mode: str) -> int:
-    app.quit_requested.clear()
+def _install_stop_signals(app) -> list:
+    """Make SIGINT/SIGTERM (SIGBREAK on Windows) request a clean stop.
 
-    def stop(_sig, _frm):
+    The handler only sets a flag; the owner loop (headless pump or the Tk tick)
+    notices it and runs app.shutdown() on the main thread. Returns the names of
+    the signals received, so the caller can report why it stopped.
+    """
+    received: list = []
+
+    def stop(sig, _frm):
+        received.append(signal.Signals(sig).name)
         app.quit_requested.set()
     for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
         sig = getattr(signal, name, None)
@@ -117,6 +136,12 @@ def _run_headless(app, args, mode: str) -> int:
                 signal.signal(sig, stop)
             except (ValueError, OSError):
                 pass
+    return received
+
+
+def _run_headless(app, args, mode: str) -> int:
+    app.quit_requested.clear()
+    _install_stop_signals(app)
     app.start_services()
     if app.control_error:
         print(f"error: control socket unavailable: {app.control_error}", file=sys.stderr)
@@ -135,6 +160,9 @@ def _run_gui(app, args, mode: str) -> int:
     except Exception as exc:  # noqa: BLE001 - ImportError, TclError (no display)
         print(f"error: GUI unavailable ({exc}); try --headless", file=sys.stderr)
         return EXIT_NO_GUI
+    # Tk's mainloop returns to Python on every pump timer tick (<= 50 ms), which is
+    # when pending signal handlers run; the tick then sees quit_requested and closes.
+    received = _install_stop_signals(app)
     app.start_services()
     if mode != "off":
         try:
@@ -144,6 +172,9 @@ def _run_gui(app, args, mode: str) -> int:
     if args.max_seconds is not None:
         win.root.after(int(args.max_seconds * 1000), win.close)
     win.run()
+    if received:
+        print(f"nightvision: stopped by {received[0]}; display restored", file=sys.stderr,
+              flush=True)
     return EXIT_OK
 
 
@@ -162,10 +193,10 @@ def main(argv=None) -> int:
         return _ctl(args)
 
     _configure_runtime()
-    from .app import NightVisionApp
+    from .app import AppError, NightVisionApp
     try:
         app = NightVisionApp(args.config, dry_run=args.dry_run, gpu=args.gpu, fps=args.fps,
-                             synthetic=args.demo,
+                             synthetic=args.demo, monitor=args.monitor,
                              enable_hotkeys=not args.demo and not args.list_backends,
                              enable_control=not args.demo and not args.list_backends)
         if args.preset:
@@ -192,6 +223,12 @@ def main(argv=None) -> int:
             if app.last_error:
                 print(f"error: {app.last_error}", file=sys.stderr)
             return rc
+        if args.monitor != 1:
+            try:
+                app.monitor_rect()  # fail early, naming the monitors that do exist
+            except AppError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return EXIT_USAGE
         mode = args.mode or ("display" if args.headless and (args.preset or args.profile)
                              else "off")
         if args.headless:

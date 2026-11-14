@@ -4,6 +4,7 @@
 entrypoint; library code (create_enhancer etc.) never changes globals."""
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import os
 import sys
@@ -39,3 +40,39 @@ def configure_runtime(cpu_threads: int | None = None) -> dict:
     n = default_cpu_threads() if cpu_threads is None else max(1, int(cpu_threads))
     cv2.setNumThreads(n)
     return {"cpu_threads": n, "malloc_arena_limited": _limit_malloc_arenas()}
+
+
+def _load_winmm():
+    """The winmm library on Windows, None elsewhere or when it cannot be loaded."""
+    if sys.platform != "win32":
+        return None
+    try:
+        return ctypes.WinDLL("winmm")
+    except (OSError, AttributeError):
+        return None
+
+
+@contextlib.contextmanager
+def timer_resolution(ms: int = 1):
+    """Request a finer system timer for the duration of the block (Windows only).
+
+    WHY: the default ~15.6 ms tick makes every sleep/wait overshoot, which shows
+    up as uneven frame pacing. timeBeginPeriod/timeEndPeriod are documented winmm
+    calls and must be paired; since Windows 10 2004 the effect is scoped to this
+    process. Yields True when a request is active, False when it is a no-op
+    (other platforms, or the call failed)."""
+    winmm = _load_winmm()
+    ok = False
+    if winmm is not None:
+        try:
+            ok = winmm.timeBeginPeriod(int(ms)) == 0  # TIMERR_NOERROR
+        except Exception:  # noqa: BLE001
+            ok = False
+    try:
+        yield ok
+    finally:
+        if ok:
+            try:
+                winmm.timeEndPeriod(int(ms))
+            except Exception:  # noqa: BLE001
+                pass

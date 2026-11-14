@@ -6,7 +6,7 @@ from __future__ import annotations
 from ...platform_detect import PlatformInfo
 from .base import CaptureError, CaptureSource
 from .dxgi import DxgiCapture
-from .mss_capture import MssCapture
+from .mss_capture import MssCapture, list_monitors
 from .portal import PortalPipeWireCapture
 from .synthetic import SyntheticCapture
 
@@ -25,17 +25,29 @@ def _order(info: PlatformInfo) -> tuple[list[str], list[str]]:
     return [], reasons
 
 
-def _make(name: str, info: PlatformInfo) -> CaptureSource:
+def monitor_rect(index: int) -> tuple[int, int, int, int]:
+    """(left, top, width, height) of monitor `index` (1-based, as mss lists them).
+
+    Raises CaptureError naming the available monitors when the index is out of range.
+    """
+    mons = list_monitors()
+    if not 1 <= index <= len(mons):
+        have = "; ".join(f"{i}: {w}x{h} at ({x},{y})" for i, (x, y, w, h) in enumerate(mons, 1))
+        raise CaptureError(f"monitor {index} not found; available monitors: {have or 'none'}")
+    return mons[index - 1]
+
+
+def _make(name: str, info: PlatformInfo, monitor: int = 1) -> CaptureSource:
     if name == "dxgi":
-        return DxgiCapture()
+        return DxgiCapture(output_idx=monitor - 1)  # NOT VERIFIED on Windows
     if name == "portal":
         return PortalPipeWireCapture()
     wayland = info.session in ("wayland", "xwayland-only")
-    return MssCapture(wayland_session=wayland)
+    return MssCapture(monitor=monitor, wayland_session=wayland)
 
 
 def select_capture_backend(info: PlatformInfo, prefer: str | None = None,
-                           synthetic: bool = False) -> tuple[CaptureSource, list[str]]:
+                           synthetic: bool = False, monitor: int = 1) -> tuple[CaptureSource, list[str]]:
     reasons: list[str] = []
     if synthetic:
         return SyntheticCapture(), ["synthetic scene requested"]
@@ -47,7 +59,8 @@ def select_capture_backend(info: PlatformInfo, prefer: str | None = None,
         else:
             names = [prefer] + [n for n in names if n != prefer]
     for n in names:
-        src = _make(n, info)
+        # Only pass a non-default monitor: keeps _make(name, info) callable as before.
+        src = _make(n, info, monitor) if monitor != 1 else _make(n, info)
         if src.available():
             cav = getattr(src, "caveat", "")
             if cav:

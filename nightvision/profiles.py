@@ -17,12 +17,16 @@ from .core.presets import PRESETS
 log = logging.getLogger(__name__)
 
 
-def default_config_path() -> pathlib.Path:
+def default_config_dir() -> pathlib.Path:
     if os.name == "nt":
         base = os.environ.get("APPDATA") or str(pathlib.Path.home() / "AppData" / "Roaming")
-        return pathlib.Path(base) / "NightVision" / "profiles.json"
+        return pathlib.Path(base) / "NightVision"
     base = os.environ.get("XDG_CONFIG_HOME") or str(pathlib.Path.home() / ".config")
-    return pathlib.Path(base) / "nightvision" / "profiles.json"
+    return pathlib.Path(base) / "nightvision"
+
+
+def default_config_path() -> pathlib.Path:
+    return default_config_dir() / "profiles.json"
 
 
 @dataclass

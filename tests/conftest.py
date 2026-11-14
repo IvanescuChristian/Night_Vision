@@ -15,3 +15,15 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "gui" in item.keywords:
             item.add_marker(skip_gui)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_user_state(monkeypatch, tmp_path):
+    # WHY: tests must never read or write the real per-user config dir (gamma
+    # crash-recovery backup, profiles.json). The explicit env override covers
+    # the backup; the XDG/APPDATA base covers anything resolved through
+    # profiles.default_config_dir(). Tests that probe those lookups set their
+    # own values afterwards, which wins over this default.
+    monkeypatch.setenv("NIGHTVISION_GAMMA_BACKUP", str(tmp_path / "gamma_backup.json"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg_config"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))

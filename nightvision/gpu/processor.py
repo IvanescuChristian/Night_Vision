@@ -3,8 +3,11 @@
 """GPU implementation of FrameEnhancer (OpenGL 3.3 core through moderngl).
 
 Pipeline (each stage is skipped when its parameter is neutral):
-  1. tone      per-channel lookup in a 256x1 texture filled from the CPU
-               build_lut(), so the tone curve matches the CPU path exactly.
+  1. tone      per-channel lookup in a 256x1 R32F texture filled from the CPU
+               build_float_lut() (unrounded curve), written to a half-float
+               target. The 8-bit quantisation happens only in the last pass,
+               with a static 8x8 Bayer dither (same pattern as the CPU path),
+               so CPU and GPU agree to within one code on tone-only presets.
   2. stats     luma and luma^2 reduced to 1/4 resolution; blurred at sigma 6
                for clarity (same geometry as the CPU path).
   3. local     APPROXIMATION of CLAHE: local mean/variance normalisation from
@@ -29,7 +32,7 @@ from typing import Optional
 
 import numpy as np
 
-from ..core.curves import build_lut
+from ..core.curves import build_float_lut, build_lut
 from ..core.params import EnhanceParams
 from ..x11_errors import preserve_x_error_handler
 from . import shaders
@@ -101,7 +104,7 @@ def create_context(prefer_egl: Optional[bool] = None):
 class _State:
     """Swapped as one reference so process() never sees mixed settings."""
     params: EnhanceParams
-    lut: np.ndarray
+    lut: np.ndarray  # float32 (256,)
     tone_identity: bool
     lc: float
     clarity: float
@@ -116,8 +119,7 @@ class _State:
 
 def _make_state(params: EnhanceParams) -> _State:
     p = params.validated()
-    lut = build_lut(p)
-    return _State(p, lut, bool(np.array_equal(lut, _ID_LUT)), p.local_contrast,
+    return _State(p, build_float_lut(p), bool(np.array_equal(build_lut(p), _ID_LUT)), p.local_contrast,
                   p.clarity * 0.8, p.sharpen, p.saturation)
 
 
@@ -288,7 +290,7 @@ class GpuFrameEnhancer:
         if self._size != (w, h, ch):
             self._reset_buffers((w, h, ch))
         if self._uploaded is not st:
-            self._lut_tex.write(st.lut.tobytes(), alignment=1)
+            self._lut_tex.write(np.ascontiguousarray(st.lut, np.float32).tobytes(), alignment=1)
             self._uploaded = st
         self._input.write(np.ascontiguousarray(frame).data, alignment=1)
 
@@ -296,7 +298,7 @@ class GpuFrameEnhancer:
         if st.tone_identity:
             tone_tex = self._input
         else:
-            t = self._target("tone", (w, h), 4)
+            t = self._target("tone", (w, h), 4, "f2")
             self._pass("tone", shaders.TONE, t, [self._input, self._lut_tex],
                        src=0, lut=1)
             tone_tex = t.tex
@@ -367,6 +369,6 @@ class GpuFrameEnhancer:
         w, h, ch = size
         self._input = self._alloc((w, h), ch)
         if self._lut_tex is None:
-            self._lut_tex = self._alloc((256, 1), 1, linear=False)
+            self._lut_tex = self._alloc((256, 1), 1, dtype="f4", linear=False)
             self._uploaded = None
         self._size = size
