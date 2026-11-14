@@ -139,9 +139,15 @@ def _install_stop_signals(app) -> list:
     return received
 
 
+def _report_signal_stop(received: list) -> None:
+    if received:
+        print(f"nightvision: stopped by {received[0]}; display restored", file=sys.stderr,
+              flush=True)
+
+
 def _run_headless(app, args, mode: str) -> int:
     app.quit_requested.clear()
-    _install_stop_signals(app)
+    received = _install_stop_signals(app)
     app.start_services()
     if app.control_error:
         print(f"error: control socket unavailable: {app.control_error}", file=sys.stderr)
@@ -150,7 +156,9 @@ def _run_headless(app, args, mode: str) -> int:
         app.set_mode(mode)
     print(f"nightvision running (mode={app.mode}, profile={app.profile}); "
           "stop with Ctrl+C or `nightvision ctl quit`", flush=True)
-    return _owner_loop(app, args.max_seconds, False)
+    rc = _owner_loop(app, args.max_seconds, False)
+    _report_signal_stop(received)
+    return rc
 
 
 def _run_gui(app, args, mode: str) -> int:
@@ -172,9 +180,7 @@ def _run_gui(app, args, mode: str) -> int:
     if args.max_seconds is not None:
         win.root.after(int(args.max_seconds * 1000), win.close)
     win.run()
-    if received:
-        print(f"nightvision: stopped by {received[0]}; display restored", file=sys.stderr,
-              flush=True)
+    _report_signal_stop(received)
     return EXIT_OK
 
 
@@ -212,6 +218,8 @@ def main(argv=None) -> int:
             _print_diagnostics(app.diagnostics(probe=True))
             return EXIT_OK
         if args.demo:
+            # Without handlers SIGTERM kills the process (143) before app.shutdown() restores state.
+            received = _install_stop_signals(app)
             if not args.preset and not args.profile:
                 app.apply_preset("night_vision")
             try:
@@ -222,6 +230,7 @@ def main(argv=None) -> int:
             rc = _owner_loop(app, args.max_seconds, True)
             if app.last_error:
                 print(f"error: {app.last_error}", file=sys.stderr)
+            _report_signal_stop(received)
             return rc
         if args.monitor != 1:
             try:
