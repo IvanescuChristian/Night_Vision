@@ -11,31 +11,52 @@ level the playing field for players whose displays crush dark detail.
 Status: working MVP (version 0.1.0). Read the verification table below before
 relying on it on a given platform.
 
-## Safety: this is image enhancement only
+## Anti-cheat and safety
 
-Night_Vision is **not** a cheat, hack or malware, and it is built so that it
-cannot behave like one:
+Night_Vision is an image-enhancement tool. Please read the honest limits below.
 
-- No process injection and no DLL/shared-library loading into any other process.
-- No reading or writing of game memory.
-- No hooking of game or graphics APIs.
-- No modification of game files.
-- No network interaction with games. The only IPC is a local control channel
-  (Unix socket with 0600 permissions on POSIX systems; 127.0.0.1 plus a
-  random token file on Windows) used by `nightvision ctl ...`.
-- No low-level keyboard hooks. Hotkeys use only the operating system's hotkey
-  registration (`RegisterHotKey` on Windows, an X11 key grab on X11).
-- Foreground-game detection (optional, for automatic profile switching) reads
-  only the focused window's title. It never opens a handle to the game process.
+What it does NOT do (checked by a source audit; details in
+[docs/WINDOWS_APIS.md](docs/WINDOWS_APIS.md)):
 
-It is equivalent in kind to changing your monitor's colour settings, your GPU
-control panel's gamma/brightness, or running a screen-capture overlay.
+- It does not open other processes and does not read or write game memory.
+- It does not inject DLLs or load libraries into any other process.
+- It does not install hooks on games, graphics APIs or the keyboard
+  (no low-level keyboard hook; hotkeys use only `RegisterHotKey` on Windows
+  and an X11 key grab on X11).
+- It uses no kernel driver.
+- It does not read or modify game files. It only touches its own files:
+  `profiles.json`, the control socket/token and `gamma_backup.json`.
+- It does not synthesise keyboard or mouse input.
+- It does not modify other programs' windows.
+- It has no network interaction with games. The only IPC is a local control
+  channel used by `nightvision ctl ...`.
 
-Honest caveat: some games' rules or anti-cheat policies may still restrict
-overlays or display gamma changes. You are responsible for checking the rules
-of the game you play. `display` mode (a plain tone curve applied through the
-display gamma ramp) is the most conservative option because it draws nothing
-and captures nothing.
+What it does read: only if automatic profile switching is turned on (it is
+**off by default**), it reads the focused window's title and class name about
+once per second. It opens no process handle and records no process ID.
+
+Honest limits, please read:
+
+- No overlay or screen-filter tool can be guaranteed safe with Easy Anti-Cheat
+  (Rust) or BattlEye (Escape from Tarkov). The anti-cheat vendor and the game's
+  own rules decide what is allowed, and they can change.
+- Check the game's rules and support pages yourself before using any overlay or
+  display tool in an online game. Use Night_Vision at your own risk.
+- Night_Vision is not "undetectable" and makes no attempt to be. It does not
+  hide itself, rename itself or evade anything.
+- A tool that only adjusts display output or draws its own window is a
+  different risk class from one that reads or modifies the game, but that is a
+  description of what the tool does, not a guarantee.
+
+Lower-risk options, from lowest risk upward:
+
+1. Your monitor's own colour/gamma/"black equalizer" settings, or your GPU
+   driver's colour and gamma settings. These involve no extra software.
+2. Night_Vision `display` mode: gamma ramp only, no screen capture and no
+   overlay window. This is the lowest-risk in-app mode.
+3. Night_Vision `overlay` mode (captures the screen and draws its own
+   window) carries more surface than `display` mode, so prefer `display` mode
+   for anti-cheat protected games.
 
 ## Features
 
@@ -51,6 +72,22 @@ and captures nothing.
   OpenCV CPU path.
 - Safety nets: the display gamma ramp is always restored on exit, and unsafe
   ramps are rejected.
+- `--monitor N` (1-based, default 1) selects which monitor is captured; the
+  overlay is created at exactly that monitor's rectangle. An invalid index
+  exits with code 2 and lists the monitors. CLI only, not saved in profiles.
+- Clean shutdown on SIGINT/SIGTERM (SIGBREAK on Windows): the display is
+  restored before exit.
+- Gamma crash recovery: before the first non-original ramp is applied a
+  backup `gamma_backup.json` is written atomically to the config directory
+  (override with the `NIGHTVISION_GAMMA_BACKUP` environment variable). It is
+  removed after a normal restore and, if a crash left it behind, validated and
+  applied on the next start.
+- Tone precision: the tone curve is a floating-point LUT and the final 8-bit
+  write uses a static 8x8 ordered (Bayer) dither. This reduces rounding error
+  in flat areas. Honest limit: it does not remove banding that comes from a
+  steep shadow curve applied to an 8-bit source; those steps are in the source.
+- Capture and pacing: fewer per-frame copies in the mss capture path and a
+  more even render pacing, so frame times are steadier.
 - A Tk control window, a headless mode, and a `--demo` synthetic scene so you
   can try it without any game.
 
@@ -98,6 +135,20 @@ Backends and fallback order:
 
 ## Install
 
+Status of each route:
+
+- Windows installer: see [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md). The
+  installer is built by CI and is unsigned; the Windows build is untested until
+  CI produces it and it has been run on a real Windows PC. See
+  [docs/AV_AND_SIGNING.md](docs/AV_AND_SIGNING.md) for SmartScreen and antivirus
+  notes.
+- Linux tarball (x86-64, no root needed): see
+  [docs/LINUX_INSTALL.md](docs/LINUX_INSTALL.md). Each release lists SHA256
+  checksums in `SHA256SUMS.txt` on the Releases page; verify downloads against it.
+- From source (below).
+
+### From source
+
 Requires Python 3.10 or newer.
 
 ```
@@ -144,7 +195,8 @@ Default hotkeys (Windows and X11): `ctrl+alt+n` toggles enhancement,
 `ctrl+alt+p` switches to the next preset. Profiles can define their own
 hotkey.
 
-Other options: `--fps N` (default 30), `--config PATH`, `--profile NAME`.
+Other options: `--fps N` (default 30), `--monitor N` (default 1),
+`--config PATH`, `--profile NAME`.
 
 ## Presets
 
@@ -184,8 +236,25 @@ names or profile name; it never inspects the process.
   faster). `--gpu gpu` forces it for testing.
 - If the GPU path fails at runtime it falls back to the CPU path; the reason is
   shown in the diagnostics.
-- The gamma ramp is restored automatically on exit; if a hard kill ever leaves
-  the screen looking wrong, restarting the display session resets it.
+- The gamma ramp is restored automatically on exit. After a hard kill the next
+  start restores it from `gamma_backup.json`; if the screen still looks wrong,
+  restarting the display session resets it.
+
+## Known limits
+
+- Everything on native Windows, real Wayland compositors, NVIDIA, discrete AMD
+  and Intel GPUs is unverified. See the table above.
+- `display` mode is a global curve only, and Windows may limit or silently
+  refuse gamma ramps (Microsoft discourages `SetDeviceGammaRamp`).
+- Dithering does not remove banding from steep shadow curves on 8-bit sources.
+- `--monitor N` with DXGI capture maps to output N-1; not verified on Windows.
+- The high-resolution timer used for pacing on Windows has only been tested
+  with a fake.
+- A second running instance may "recover" the first instance's live gamma
+  backup; this is untested. If the X server restarts with new CRTC ids, the
+  backup restores nothing.
+- No signed installer; the Windows build is unsigned and will stay so for now, so SmartScreen warns.
+- No anti-cheat guarantee of any kind (see above).
 
 ## License
 

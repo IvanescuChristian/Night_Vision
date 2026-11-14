@@ -209,6 +209,10 @@ control thread  >--> bounded action queue --> drained on the owner thread
 | NVIDIA GPUs | NOT VERIFIED |
 | Discrete AMD GPUs | NOT VERIFIED |
 | Intel GPUs | NOT VERIFIED |
+| `--monitor N`, clean shutdown on signals, gamma crash recovery, float LUT + dither, capture allocation and pacing changes | Verified by tests on Linux under a virtual display (software GL) |
+| Windows `dxcam` output index for `--monitor N` (N-1) | NOT VERIFIED |
+| Windows `timeBeginPeriod`/`timeEndPeriod` pacing | Only tested with a fake |
+| SIGBREAK handling, `WDA_EXCLUDEFROMCAPTURE` | NOT VERIFIED on Windows |
 
 ## 10. Measurements
 
@@ -294,6 +298,39 @@ capture exclusion), and real Wayland compositors. Figures above are from a
 single Linux machine with 16 logical cores.
 <!-- MEASUREMENTS:END -->
 
+### Quality pass measurements (software GL on a virtual display)
+
+These figures were measured with the Mesa software renderer (llvmpipe) on a
+virtual display. They are NOT representative of real GPUs; they only show the
+direction of each change on that setup. Several runs were single and noisy.
+
+- Tone precision: 8x8 block-mean error against a floating-point reference
+  dropped from 0.17-0.21 codes to 0.013-0.014 (CPU) and 0.023-0.040 (GPU).
+  The dither does not remove step banding from steep shadow curves on an 8-bit
+  source (largest shadow LUT step: 18 codes for `night_vision`, 26 for
+  `rust_night`); the gradient max-jump metric was unchanged or slightly higher.
+- CPU vs GPU agreement: at most 1 code for tone-only presets; for presets with
+  local contrast the mean difference is at most 3.5 and the maximum at most 35
+  (the tested bound).
+- mss capture: allocations per 1920x1080 grab went from 3 frames to 1; median
+  grab time 1.74 ms to 0.87 ms.
+- CPU fallback tone step: 4.6 ms to 2.1 ms, bit-identical output.
+- Pacing (CPU enhancer, synthetic 1920x1080, 10 s): `balanced` at 60 fps
+  target went from 53.0 fps (frame-time std 4.4 ms) to 58.7 fps (std 1.6 ms);
+  at 30 fps the rate is unchanged (about 30 fps, CPU 108% to 93%).
+  `night_vision` on the CPU path is compute-bound and did not improve (23.6 to
+  22.2 fps at 30; 26.9 to 22.8 at 60; noisy single runs, unexplained).
+- Median frame times, before to after (ms): CPU `balanced` 15.8 to 13.6; CPU
+  `night_vision` 34.6 to 36.1; GPU (llvmpipe) `balanced` 6.6 to 7.2; GPU
+  (llvmpipe) `night_vision` 11.9 to 12.9.
+- Resource test: mss + CPU peak RSS growth 8.2 MB (ceiling 40 MB).
+- Tests: 270 passed / 2 skipped before the pass, 354 passed / 2 skipped after.
+
+Statistics note: `frames_dropped` counts captures superseded before rendering.
+Capture runs at twice the target rate, so about half are dropped by design; the
+UI therefore shows `frames_late` (render iterations that missed their
+deadline) instead.
+
 ## 11. Known limitations
 
 - `display` mode is a global curve only; no local contrast, sharpening or
@@ -312,3 +349,13 @@ single Linux machine with 16 logical cores.
 - Windows gamma ramp is a single global ramp (no per-monitor control yet) and
   may be range-limited by the system.
 - Everything on native Windows and real Wayland compositors is unverified.
+- A second running instance would "recover" the first instance's live
+  `gamma_backup.json` and apply it; untested.
+- If the X server restarts and assigns new CRTC ids, crash recovery restores
+  nothing.
+- The `dxcam` output index for `--monitor N` is mapped as N-1 and is unverified
+  on Windows.
+- The Windows timer-resolution calls are only tested with a fake.
+- Dithering does not remove banding that originates from steep shadow curves on
+  8-bit sources.
+- `--monitor N` is CLI only; it is not persisted and has no UI control.
