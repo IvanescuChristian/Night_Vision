@@ -264,5 +264,5 @@ the PolyForm Strict License 1.0.0 with Additional Terms (see `LICENSE`):
 attribution is required; modifications, derivative works and redistribution
 are not permitted; commercial use is allowed only under a prior written
 agreement with the licensor (including revenue share); all rights not granted
-are reserved. For commercial licensing contact christian.ivanescu@isoskills.fi.
+are reserved. For commercial licensing contact massini.christian@gmail.com.
 The full terms are in the `LICENSE` file, which governs.
