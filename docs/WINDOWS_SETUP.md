@@ -1,8 +1,8 @@
 # Windows setup (no programming needed)
 
-IMPORTANT: the Windows build is untested until the automated build produces it
-and someone runs it on a real Windows PC. Treat the first run as a test. Steps
-below describe what is expected, not something already confirmed.
+IMPORTANT: the Windows build is built and smoke-tested by CI; not yet run on a
+real Windows PC. Treat the first run as a test. Steps below describe what is
+expected, not something already confirmed.
 
 ## Before you start: games with anti-cheat
 

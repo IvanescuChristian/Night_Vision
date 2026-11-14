@@ -8,7 +8,7 @@ shadow-lift tone curve, local contrast, sharpening, clarity and saturation
 controls, with presets, per-game profiles and global hotkeys. The goal is to
 level the playing field for players whose displays crush dark detail.
 
-Status: working MVP (version 0.1.0). Read the verification table below before
+Status: working MVP (version 0.1.1). Read the verification table below before
 relying on it on a given platform.
 
 ## Anti-cheat and safety
@@ -138,8 +138,9 @@ Backends and fallback order:
 Status of each route:
 
 - Windows installer: see [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md). The
-  installer is built by CI and is unsigned; the Windows build is untested until
-  CI produces it and it has been run on a real Windows PC. See
+  installer is unsigned. It is built and smoke-tested by CI; not yet run on a
+  real Windows PC. Downloads are on the
+  [Releases page](https://github.com/IvanescuChristian/Night_Vision/releases). See
   [docs/AV_AND_SIGNING.md](docs/AV_AND_SIGNING.md) for SmartScreen and antivirus
   notes.
 - Linux tarball (x86-64, no root needed): see

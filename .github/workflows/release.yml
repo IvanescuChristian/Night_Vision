@@ -75,6 +75,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "NightVisionCLI.exe --list-backends failed ($LASTEXITCODE)" }
           dist\NightVision\NightVisionCLI.exe --headless --dry-run --max-seconds 3
           if ($LASTEXITCODE -ne 0) { throw "NightVisionCLI.exe headless run failed ($LASTEXITCODE)" }
+          # WHY: the windowed exe is what users launch and it has its own entry point. The hosted runner
+          # has no GPU or GL context, so --dry-run is used: it still runs the windowed exe's startup and
+          # imports without needing a window. Start-Process -Wait is needed because a GUI-subsystem exe
+          # returns to the shell immediately, which would make $LASTEXITCODE meaningless.
+          $p = Start-Process -FilePath dist\NightVision\NightVision.exe -ArgumentList '--headless','--dry-run','--max-seconds','3' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "NightVision.exe headless run failed ($($p.ExitCode))" }
       - name: Compile installer
         env:
           NV_VERSION: ${{ steps.ver.outputs.version }}
@@ -172,3 +178,18 @@ jobs:
           files: artifacts/*
           fail_on_unmatched_files: true
           generate_release_notes: true
+          body: |
+            ## Install
+
+            - Windows: run the setup exe or unpack the zip; see docs/WINDOWS_SETUP.md.
+            - Linux (x86-64): unpack the tarball and use its install script; see docs/LINUX_INSTALL.md.
+
+            ## Verify your download
+
+            Windows (PowerShell): `Get-FileHash .\NightVision-*-windows-x64-setup.exe -Algorithm SHA256`, then compare with the matching line in SHA256SUMS.txt.
+            Linux: `sha256sum -c SHA256SUMS.txt --ignore-missing`
+
+            ## Notes
+
+            - The Windows build is unsigned; SmartScreen will warn (see docs/AV_AND_SIGNING.md).
+            - Anti-cheat: no screen filter can be guaranteed safe with Easy Anti-Cheat or BattlEye; see the "Anti-cheat and safety" section of the README before using it in a protected game.

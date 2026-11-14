@@ -2,7 +2,7 @@
 
 ## State of the MVP
 
-Version 0.1.0. Implemented: parameter model, tone curve and presets, CPU
+Version 0.1.1. Implemented: parameter model, tone curve and presets, CPU
 enhancement path, OpenGL 3.3 GPU path with probe/self-test/fallback, tone
 backends (Windows, X11, wlroots proxy, null), capture backends (DXGI, mss,
 portal/PipeWire, synthetic), two-thread pipeline, GLFW window/overlay sink with
@@ -154,20 +154,20 @@ Nothing below has been run on real hardware yet.
 9. X11: restart the X server while in display mode and note whether the
    original ramp is restored (new CRTC ids are a known gap).
 
-## Remaining packaging steps
+## Packaging status
 
-1. Linux artifact (tarball with install script), built with PyInstaller
-   one-dir: DONE. Built and smoke-tested on Linux (tarball, `--help`,
-   `--list-backends`, headless run); never run on Windows.
-2. Windows CI workflow (windows-latest): tests, PyInstaller one-dir (no UPX,
-   version metadata, GUI and console executables), Inno Setup installer,
-   SHA256 checksums: DONE as `.github/workflows/release.yml`, validated with
-   actionlint. It has never run on a real Windows runner.
-3. Release on a version tag (installer, Linux artifact and checksums attached
-   to a GitHub Release, tag checked against `nightvision/__init__.py` and
-   `pyproject.toml`): DONE in the same workflow, validated with actionlint
-   only; the release job has never run.
-4. Code signing: DECIDED, Windows builds ship unsigned (no certificate purchase);
-   docs/AV_AND_SIGNING.md and docs/WINDOWS_SETUP.md explain SmartScreen, checksum
-   and false-positive steps. Nothing left to do here.
-5. First real Windows run of the CI-built installer (docs/WINDOWS_SETUP.md).
+v0.1.1 is released: https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1
+Assets: NightVision-0.1.1-linux-x86_64.tar.gz, NightVision-0.1.1-windows-x64-setup.exe,
+NightVision-0.1.1-windows-x64.zip, SHA256SUMS.txt. CI was green: tests on Linux and
+Windows, both builds smoke-tested (the frozen app starts and exits cleanly), release
+job published the assets. The tag sits on branch feature/quality-pass.
+
+Code signing: DECIDED, Windows builds ship unsigned (no certificate purchase);
+docs/AV_AND_SIGNING.md and docs/WINDOWS_SETUP.md explain SmartScreen, checksum
+and false-positive steps.
+
+Open items:
+
+1. Merge PR #3 (owner).
+2. First run of the CI-built Windows installer and zip on a real Windows PC
+   (docs/WINDOWS_SETUP.md); the real-hardware checklist above still applies.
