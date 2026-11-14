@@ -143,7 +143,22 @@ class ControlServer:
         os.chmod(self.path, 0o600)
         return s
 
+    def _tcp_instance_alive(self) -> bool:
+        """True when the port recorded in an existing info file still accepts connections."""
+        try:
+            with open(self.path) as f:
+                port = int(json.load(f)["port"])
+            socket.create_connection(("127.0.0.1", port), 0.5).close()
+        except (OSError, ValueError, KeyError, TypeError):
+            return False  # missing/stale/corrupt file: nobody is listening
+        return True
+
     def _bind_tcp(self) -> socket.socket:
+        # WHY: unlike an AF_UNIX path, an ephemeral TCP port never collides, so without
+        # this a second instance would silently overwrite the first one's port/token
+        # file and both would run, with the first no longer reachable by `ctl`.
+        if os.path.exists(self.path) and self._tcp_instance_alive():
+            raise RuntimeError(f"another instance is already listening (see {self.path})")
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(("127.0.0.1", 0))
         self._token = secrets.token_hex(16)

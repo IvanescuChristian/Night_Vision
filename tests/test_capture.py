@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
 # Copyright (c) 2026 Christian Ivanescu. See LICENSE for terms (source-available; not open source).
+import sys
+
 import numpy as np
 import pytest
 
@@ -87,12 +89,16 @@ def test_selection_synthetic_and_headless():
         select_capture_backend(info("headless"))
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"),
+                    reason="the XWayland caveat only applies to X11 builds of mss; Windows uses GDI")
 def test_wayland_mss_flagged_xwayland():
     # portal is unavailable in this environment, so mss is the fallback and must be flagged
     m = MssCapture(wayland_session=True, env={"DISPLAY": ":0"})
     assert "XWayland" in m.caveat
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"),
+                    reason="mss uses GDI on Windows and never needs DISPLAY")
 def test_mss_unavailable_without_display():
     m = MssCapture(env={})
     assert not m.available() and "DISPLAY" in m.unavailable_reason()
@@ -102,7 +108,14 @@ def test_portal_and_dxgi_unavailable_here_with_reasons():
     p = PortalPipeWireCapture(env={})
     assert not p.available() and p.unavailable_reason()
     d = DxgiCapture()
-    assert not d.available() and "Windows" in d.unavailable_reason()
+    if sys.platform.startswith("win"):
+        # On Windows DXGI is only unavailable when the optional dxcam package is missing;
+        # skip the expectation when a developer machine has it installed.
+        if d.available():
+            pytest.skip("dxcam installed: dxgi legitimately available")
+        assert "dxcam" in d.unavailable_reason()
+    else:
+        assert not d.available() and "Windows" in d.unavailable_reason()
     for c in (p, d):
         with pytest.raises(CaptureError):
             c.open()

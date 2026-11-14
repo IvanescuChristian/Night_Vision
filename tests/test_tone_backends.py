@@ -209,6 +209,8 @@ def test_select_x11_xrandr_chosen(monkeypatch):
     assert b.name == "xrandr"
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="on real Windows the win32 backend is genuinely selected")
 def test_select_windows_on_linux_falls_to_null():
     b, why = select_tone_backend(_info({}, "win32"))
     assert b.name == "null" and why[0].startswith("win32:")

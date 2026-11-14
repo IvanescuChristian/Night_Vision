@@ -41,46 +41,53 @@ def test_usage_errors_have_meaningful_codes(capsys, tmp_path):
 
 
 def test_ctl_without_instance(tmp_path):
-    r = run(["ctl", "status"], env={"XDG_RUNTIME_DIR": str(tmp_path)})
+    r = run(["ctl", "status"], env=_ctl_env(tmp_path))
     assert r.returncode == 4
     assert "no running" in r.stderr
 
 
 def test_ctl_needs_name(tmp_path):
-    r = run(["ctl", "preset"], env={"XDG_RUNTIME_DIR": str(tmp_path)})
+    r = run(["ctl", "preset"], env=_ctl_env(tmp_path))
     assert r.returncode == 2
+
+
+def _ctl_env(rt):
+    # WHY: the control channel lives under XDG_RUNTIME_DIR on POSIX but under
+    # %LOCALAPPDATA% on Windows (TCP + token file); redirect whichever applies so
+    # tests never touch, or collide with, a real running instance.
+    return {"XDG_RUNTIME_DIR": str(rt), "LOCALAPPDATA": str(rt)}
 
 
 def test_headless_ctl_roundtrip_and_quit(tmp_path):
     rt = tmp_path / "run"
     rt.mkdir(mode=0o700)
-    env = dict(os.environ, PYTHONPATH=ROOT, XDG_RUNTIME_DIR=str(rt))
+    env = dict(os.environ, PYTHONPATH=ROOT, **_ctl_env(rt))
     proc = subprocess.Popen(
         [sys.executable, "-m", "nightvision", "--headless", "--dry-run",
          "--config", str(tmp_path / "p.json")],
         env=env, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         assert proc.stdout.readline().startswith("nightvision running")
-        r = run(["ctl", "status"], env={"XDG_RUNTIME_DIR": str(rt)})
+        r = run(["ctl", "status"], env=_ctl_env(rt))
         assert r.returncode == 0, r.stderr
         assert json.loads(r.stdout)["mode"] == "off"
-        assert run(["ctl", "preset", "balanced"], env={"XDG_RUNTIME_DIR": str(rt)}).returncode == 0
-        assert run(["ctl", "toggle"], env={"XDG_RUNTIME_DIR": str(rt)}).returncode == 0
+        assert run(["ctl", "preset", "balanced"], env=_ctl_env(rt)).returncode == 0
+        assert run(["ctl", "toggle"], env=_ctl_env(rt)).returncode == 0
         deadline = time.time() + 5
         st = {}
         while time.time() < deadline:
-            st = json.loads(run(["ctl", "status"], env={"XDG_RUNTIME_DIR": str(rt)}).stdout)
+            st = json.loads(run(["ctl", "status"], env=_ctl_env(rt)).stdout)
             if st["mode"] == "display":
                 break
             time.sleep(0.1)
         assert st["mode"] == "display" and st["preset"] == "balanced"
-        bad = run(["ctl", "preset", "bogus"], env={"XDG_RUNTIME_DIR": str(rt)})
+        bad = run(["ctl", "preset", "bogus"], env=_ctl_env(rt))
         assert bad.returncode == 1
         # second headless instance must refuse instead of fighting over the socket
         dup = run(["--headless", "--dry-run", "--config", str(tmp_path / "p2.json")],
-                  env={"XDG_RUNTIME_DIR": str(rt)})
+                  env=_ctl_env(rt))
         assert dup.returncode == 5
-        assert run(["ctl", "quit"], env={"XDG_RUNTIME_DIR": str(rt)}).returncode == 0
+        assert run(["ctl", "quit"], env=_ctl_env(rt)).returncode == 0
         assert proc.wait(timeout=5) == 0
     finally:
         if proc.poll() is None:
@@ -88,10 +95,12 @@ def test_headless_ctl_roundtrip_and_quit(tmp_path):
         proc.communicate()
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Popen.terminate() is TerminateProcess on Windows, not a catchable SIGTERM")
 def test_headless_sigterm_exits_cleanly(tmp_path):
     rt = tmp_path / "run"
     rt.mkdir(mode=0o700)
-    env = dict(os.environ, PYTHONPATH=ROOT, XDG_RUNTIME_DIR=str(rt))
+    env = dict(os.environ, PYTHONPATH=ROOT, **_ctl_env(rt))
     proc = subprocess.Popen(
         [sys.executable, "-m", "nightvision", "--headless", "--dry-run",
          "--config", str(tmp_path / "p.json")],
