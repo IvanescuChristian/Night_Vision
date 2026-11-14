@@ -2,7 +2,7 @@
 
 ## State of the MVP
 
-Version 0.1.1. Implemented: parameter model, tone curve and presets, CPU
+Version 0.1.2. Implemented: parameter model, tone curve and presets, CPU
 enhancement path, OpenGL 3.3 GPU path with probe/self-test/fallback, tone
 backends (Windows, X11, wlroots proxy, null), capture backends (DXGI, mss,
 portal/PipeWire, synthetic), two-thread pipeline, GLFW window/overlay sink with
@@ -156,7 +156,7 @@ Nothing below has been run on real hardware yet.
 
 ## Packaging status
 
-v0.1.1 is released: https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1
+v0.1.2 is the current release (upgrade guide: docs/UPGRADING.md). v0.1.1 is released: https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1
 Assets: NightVision-0.1.1-linux-x86_64.tar.gz, NightVision-0.1.1-windows-x64-setup.exe,
 NightVision-0.1.1-windows-x64.zip, SHA256SUMS.txt. CI was green: tests on Linux and
 Windows, both builds smoke-tested (the frozen app starts and exits cleanly), release

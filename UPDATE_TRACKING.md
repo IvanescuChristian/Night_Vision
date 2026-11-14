@@ -2,7 +2,12 @@
 
 Checkpointed development log, newest first.
 
-## 2026-11-14
+## 2026-11-14 - Release 0.1.2
+
+- 0.1.2: clean upgrades. Inno Setup InstallDelete/CloseApplications/cross-scope install guard,
+  atomic Linux install swap with a VERSION file, uninstall --purge, docs/UPGRADING.md.
+
+## 2026-11-14 - Release 0.1.1
 
 - 0.1.1: first published release (the 0.1.0 tag predates CI test fixes; no release was built for it).
   https://github.com/IvanescuChristian/Night_Vision/releases/tag/v0.1.1. Assets:

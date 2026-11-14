@@ -8,7 +8,7 @@ shadow-lift tone curve, local contrast, sharpening, clarity and saturation
 controls, with presets, per-game profiles and global hotkeys. The goal is to
 level the playing field for players whose displays crush dark detail.
 
-Status: working MVP (version 0.1.1). Read the verification table below before
+Status: working MVP (version 0.1.2). Read the verification table below before
 relying on it on a given platform.
 
 ## Anti-cheat and safety
